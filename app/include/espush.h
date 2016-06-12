@@ -185,7 +185,12 @@ sint8 ICACHE_FLASH_ATTR espush_msg_plan(uint8* buf, uint16 len, uint32 _timestam
  */
 sint8 ICACHE_FLASH_ATTR espush_server_connect_status();
 
+
+//smartconfig »Øµ÷
+typedef void(*smartconfig_succ_cb)();
 void ICACHE_FLASH_ATTR espush_network_cfg_by_smartconfig();
+void ICACHE_FLASH_ATTR espush_network_cfg_by_smartconfig_with_callback(smartconfig_succ_cb fn);
+
 
 void ICACHE_FLASH_ATTR show_systime();
 

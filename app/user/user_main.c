@@ -46,7 +46,7 @@ void ICACHE_FLASH_ATTR user_rf_pre_init(void)
 
 void ICACHE_FLASH_ATTR board_init()
 {
-	test_key_init();
+	smc_ir_key_init();
 	DHTInit(SENSOR_DHT11, 5000);
 
 	color_led_init();

@@ -10,6 +10,7 @@
 #include "driver/key.h"
 #include "driver/gpio16.h"
 #include "dht.h"
+#include "espush.h"
 
 #define PWM_GREEN_OUT_IO_MUX PERIPHS_IO_MUX_MTDI_U
 #define PWM_GREEN_OUT_IO_NUM 12
@@ -27,15 +28,33 @@
 #define PWM_BLUE_BITS	BIT13
 
 
+
+void smartconfig_succ_func()
+{
+	//配置成功后，调低彩灯亮度
+	pwm_set_duty(10, 0);   // 0~2
+	pwm_set_duty(10, 1);   // 0~2
+	pwm_set_duty(10, 2);   // 0~2
+	pwm_start();
+}
+
+
 LOCAL void ICACHE_FLASH_ATTR btn_long_press(void)
 {
-	at_response("LONG\r\n");
+	at_response("SMARTCONFIG");
+	espush_network_cfg_by_smartconfig_with_callback(smartconfig_succ_func);
+	//按钮长按5秒后，调整彩灯亮度到高水位
+
+	pwm_set_duty(8000, 0);   // 0~2
+	pwm_set_duty(8000, 1);   // 0~2
+	pwm_set_duty(8000, 2);   // 0~2
+	pwm_start();
 }
 
 
 LOCAL void ICACHE_FLASH_ATTR btn_short_press(void)
 {
-	at_response("SHORT\r\n");
+	//at_response("SHORT\r\n");
 }
 
 
@@ -53,12 +72,13 @@ LOCAL void ICACHE_FLASH_ATTR ir_short_press(void)
 
 #define NUM_BTN 2
 
-void ICACHE_FLASH_ATTR test_key_init()
+void ICACHE_FLASH_ATTR smc_ir_key_init()
 {
 	static struct keys_param keys;
 	static struct single_key_param *keys_param[NUM_BTN];
-	keys_param[0] = key_init_single(0, PERIPHS_IO_MUX_GPIO0_U, FUNC_GPIO0, ir_long_press, ir_short_press); // GOOD
-	keys_param[1] = key_init_single(2, PERIPHS_IO_MUX_GPIO2_U, FUNC_GPIO2, btn_long_press, btn_short_press); // GOOD
+	// 2 是按钮，0 是红外
+	keys_param[0] = key_init_single(2, PERIPHS_IO_MUX_GPIO2_U, FUNC_GPIO2, btn_long_press, btn_short_press); // GOOD
+	keys_param[1] = key_init_single(0, PERIPHS_IO_MUX_GPIO0_U, FUNC_GPIO0, ir_long_press, ir_short_press); // GOOD
 //	keys_param[0] = key_init_single(12, PERIPHS_IO_MUX_MTDI_U, FUNC_GPIO12, btn_long_press, btn_short_press); // GOOD
 //	keys_param[0] = key_init_single(13, PERIPHS_IO_MUX_MTCK_U, FUNC_GPIO13, btn_long_press, btn_short_press); // BAD
 //	keys_param[0] = key_init_single(14, PERIPHS_IO_MUX_MTMS_U, FUNC_GPIO14, btn_long_press, btn_short_press); // GOOD
@@ -81,7 +101,8 @@ void ICACHE_FLASH_ATTR at_queryReadDHT(uint8_t id)
 	if(dht->success) {
 		at_response_ok();
 	} else {
-		at_response_error();
+		//at_response_error();
+		at_response_ok();
 	}
 }
 

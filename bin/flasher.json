@@ -1,0 +1,23 @@
+{
+  "freq": "40m",
+  "mode": "qio",
+  "size": "32m-c1",
+  "firmware": [
+    {
+      "addr": "0x00000",
+      "name": "boot_v1.5.bin"
+    },
+    {
+      "addr": "0x01000",
+      "name": "user1.4096.new.4.bin"
+    },
+    {
+      "addr": "0x3FC000",
+      "name": "esp_init_data_default.bin"
+    },
+    {
+      "addr": "0x3FE000",
+      "name": "blank.bin"
+    }
+  ]
+}
