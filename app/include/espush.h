@@ -191,12 +191,17 @@ typedef void(*smartconfig_succ_cb)();
 void ICACHE_FLASH_ATTR espush_network_cfg_by_smartconfig();
 void ICACHE_FLASH_ATTR espush_network_cfg_by_smartconfig_with_callback(smartconfig_succ_cb fn);
 
+void ICACHE_FLASH_ATTR uart_stream(uint8* pdata, uint32 len);
 
 void ICACHE_FLASH_ATTR show_systime();
 
 void ICACHE_FLASH_ATTR espush_set_server_host(uint32 addr);
 uint32 ICACHE_FLASH_ATTR espush_get_server_host();
 
+
+//save espush config
+void ICACHE_FLASH_ATTR save_espush_cfg(uint32 app_id, uint8* appkey, uint8* devid);
+bool ICACHE_FLASH_ATTR read_espush_cfg(espush_cfg_s* info);
 
 /*
  * 连接后可获得当前时间

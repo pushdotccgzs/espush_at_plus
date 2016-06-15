@@ -29,20 +29,31 @@
 
 
 
-void smartconfig_succ_func()
+void ICACHE_FLASH_ATTR smartconfig_succ_timer_cb(void* params)
+{
+	regist_push_from_read_flash();
+}
+
+
+void ICACHE_FLASH_ATTR smartconfig_succ_func()
 {
 	//配置成功后，调低彩灯亮度
 	pwm_set_duty(10, 0);   // 0~2
 	pwm_set_duty(10, 1);   // 0~2
 	pwm_set_duty(10, 2);   // 0~2
 	pwm_start();
+
+	//两秒后开始连接
+	static os_timer_t espush_connect_timer;
+	os_timer_disarm(&espush_connect_timer);
+	os_timer_setfn(&espush_connect_timer, smartconfig_succ_timer_cb, NULL);
+	os_timer_arm(&espush_connect_timer, 2000, 0);
 }
 
 
 LOCAL void ICACHE_FLASH_ATTR btn_long_press(void)
 {
-	at_response("SMARTCONFIG");
-	at_response_ok();
+	at_response("SMARTCONFIG\r\n");
 	espush_network_cfg_by_smartconfig_with_callback(smartconfig_succ_func);
 	//按钮长按5秒后，调整彩灯亮度到高水位
 
@@ -61,26 +72,32 @@ LOCAL void ICACHE_FLASH_ATTR btn_short_press(void)
 
 LOCAL void ICACHE_FLASH_ATTR ir_long_press(void)
 {
-	at_response("IR LONG\r\n");
+	//at_response("IR LONG\r\n");
 }
 
 
 LOCAL void ICACHE_FLASH_ATTR ir_short_press(void)
 {
-	at_response("IR SHORT\r\n");
+	at_response("IR ALARM\r\n");
+	//发数据！
+	uart_stream("IR1", 3);
 }
 
 
-#define NUM_BTN 2
+#define NUM_BTN 1
 
 void ICACHE_FLASH_ATTR smc_ir_key_init()
 {
 	static struct keys_param keys;
 	static struct single_key_param *keys_param[NUM_BTN];
 	// 2 是按钮，0 是红外
-	keys_param[0] = key_init_single(2, PERIPHS_IO_MUX_GPIO2_U, FUNC_GPIO2, btn_long_press, btn_short_press); // GOOD
-	keys_param[1] = key_init_single(0, PERIPHS_IO_MUX_GPIO0_U, FUNC_GPIO0, ir_long_press, ir_short_press); // GOOD
-//	keys_param[0] = key_init_single(12, PERIPHS_IO_MUX_MTDI_U, FUNC_GPIO12, btn_long_press, btn_short_press); // GOOD
+	//keys_param[0] = key_init_single(2, PERIPHS_IO_MUX_GPIO2_U, FUNC_GPIO2, btn_long_press, btn_short_press); // GOOD
+	keys_param[0] = key_init_single(0, PERIPHS_IO_MUX_GPIO0_U, FUNC_GPIO0, btn_long_press, btn_short_press); // GOOD
+
+//	keys_param[0] = key_init_single(2, PERIPHS_IO_MUX_GPIO2_U, FUNC_GPIO2, btn_long_press, btn_short_press); // GOOD
+//	keys_param[1] = key_init_single(0, PERIPHS_IO_MUX_GPIO0_U, FUNC_GPIO0, ir_long_press, ir_short_press); // GOOD
+
+	//	keys_param[0] = key_init_single(12, PERIPHS_IO_MUX_MTDI_U, FUNC_GPIO12, btn_long_press, btn_short_press); // GOOD
 //	keys_param[0] = key_init_single(13, PERIPHS_IO_MUX_MTCK_U, FUNC_GPIO13, btn_long_press, btn_short_press); // BAD
 //	keys_param[0] = key_init_single(14, PERIPHS_IO_MUX_MTMS_U, FUNC_GPIO14, btn_long_press, btn_short_press); // GOOD
 //	keys_param[0] = key_init_single(15, PERIPHS_IO_MUX_MTDO_U, FUNC_GPIO15, btn_long_press, btn_short_press); // BAD
