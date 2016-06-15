@@ -39,11 +39,20 @@ at_funcationType at_custom_cmd[] = {
 	{"+RELAY", 6, NULL, NULL, at_setupRelax, NULL},
 };
 
+/*
+ * 系统启动射频参数初始化，如非必要不要填入内容，可设置默认启动参数加速WIFI初始化过程
+ */
 void ICACHE_FLASH_ATTR user_rf_pre_init(void)
 {
 }
 
-
+/*
+ * 开发板初始化函数
+ * 1, 初始化按钮、红外
+ * 2, 初始化DHT11
+ * 3, 彩灯默认亮度调节
+ * 4, LED默认关闭
+ */
 void ICACHE_FLASH_ATTR board_init()
 {
 	smc_ir_key_init();
@@ -60,6 +69,9 @@ void ICACHE_FLASH_ATTR board_init()
 }
 
 
+/*
+ * 系统入口函数
+ */
 void ICACHE_FLASH_ATTR user_init(void)
 {
     char* ver = "espush.cn ";
