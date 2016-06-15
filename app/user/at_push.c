@@ -97,7 +97,7 @@ void ICACHE_FLASH_ATTR at_setupCmdPushRegistCur(uint8_t id, char *pPara)
 		return;
 	}
 
-	espush_register(appid_val, appkey, "AT_DEV_ANONYMOUS", VER_AT, at_recv_push_msg_cb);
+	espush_register(appid_val, appkey, "AT_DEV_ANONYMOUS", VER_AT_PLUS, at_recv_push_msg_cb);
 	espush_atcmd_cb(atcmd_callback);
 
 	at_response_ok();
@@ -209,7 +209,7 @@ void ICACHE_FLASH_ATTR at_setupCmdPushRegistDef(uint8_t id, char *pPara)
 
 	appid_val = atoi(appid);
 	save_espush_cfg(appid_val, appkey);
-	espush_register(appid_val, appkey, "AT_DEV_ANONYMOUS", VER_AT, at_recv_push_msg_cb);
+	espush_register(appid_val, appkey, "AT_DEV_ANONYMOUS", VER_AT_PLUS, at_recv_push_msg_cb);
 	espush_atcmd_cb(atcmd_callback);
 
 	at_response_ok();
@@ -225,7 +225,7 @@ uint8 ICACHE_FLASH_ATTR regist_push_from_read_flash()
 		return 1;
 	}
 
-	espush_register(info.app_id, info.appkey, "AT_DEV_ANONYMOUS", VER_AT, at_recv_push_msg_cb);
+	espush_register(info.app_id, info.appkey, "AT_DEV_ANONYMOUS", VER_AT_PLUS, at_recv_push_msg_cb);
 	espush_atcmd_cb(atcmd_callback);
 	return 0;
 }
@@ -534,7 +534,7 @@ void ICACHE_FLASH_ATTR at_exec_espush_init(uint8_t id)
 	create_uuid(&uuid);
 	uuid_to_string(&uuid, devid);
 
-	espush_single_device_init(devid, VER_AT, at_recv_push_msg_cb);
+	espush_single_device_init(devid, VER_AT_PLUS, at_recv_push_msg_cb);
 	espush_atcmd_cb(atcmd_callback);
 
 	at_response_ok();

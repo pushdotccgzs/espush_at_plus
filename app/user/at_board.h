@@ -28,5 +28,6 @@ void ICACHE_FLASH_ATTR at_execColorInit(uint8_t id);
 
 
 void ICACHE_FLASH_ATTR test_key_init();
+void rt_status_cb_func(uint32 msgid, char* key, int16_t length);
 
 #endif /* APP_USER_AT_PUSH_H_ */

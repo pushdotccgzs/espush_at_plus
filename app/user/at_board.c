@@ -42,6 +42,7 @@ void smartconfig_succ_func()
 LOCAL void ICACHE_FLASH_ATTR btn_long_press(void)
 {
 	at_response("SMARTCONFIG");
+	at_response_ok();
 	espush_network_cfg_by_smartconfig_with_callback(smartconfig_succ_func);
 	//按钮长按5秒后，调整彩灯亮度到高水位
 
@@ -124,7 +125,7 @@ void ICACHE_FLASH_ATTR at_setupRedLed(uint8_t id, char *pPara)
 	uint32_t val= atoi(++pPara);
 	if(!val) {
 		PIN_FUNC_SELECT(PWM_RED_OUT_IO_MUX, PWM_RED_OUT_IO_FUNC);
-		gpio_output_set(0, PWM_RED_BITS, 0, PWM_RED_BITS);
+		gpio_output_set(0, PWM_RED_BITS, PWM_RED_BITS, 0);
 		at_response_ok();
 		return;
 	}
@@ -140,7 +141,7 @@ void ICACHE_FLASH_ATTR at_setupGreenLed(uint8_t id, char *pPara)
 	uint32_t val= atoi(++pPara);
 	if(!val) {
 		PIN_FUNC_SELECT(PWM_GREEN_OUT_IO_MUX, PWM_GREEN_OUT_IO_FUNC);
-		gpio_output_set(0, PWM_GREEN_BITS, 0, PWM_GREEN_BITS);
+		gpio_output_set(0, PWM_GREEN_BITS, PWM_GREEN_BITS, 0);
 		at_response_ok();
 		return;
 	}
@@ -157,7 +158,7 @@ void ICACHE_FLASH_ATTR at_setupBlueLed(uint8_t id, char *pPara)
 	uint32_t val= atoi(++pPara);
 	if(!val) {
 		PIN_FUNC_SELECT(PWM_BLUE_OUT_IO_MUX, PWM_BLUE_OUT_IO_FUNC);
-		gpio_output_set(0, PWM_BLUE_BITS, 0, PWM_BLUE_BITS);
+		gpio_output_set(0, PWM_BLUE_BITS, PWM_BLUE_BITS, 0);
 		at_response_ok();
 		return;
 	}
@@ -182,7 +183,7 @@ void ICACHE_FLASH_ATTR at_setupRelax(uint8_t id, char *pPara)
 	if(val) {
 		gpio_output_set(BIT5, 0, BIT5, 0);
 	} else {
-		gpio_output_set(0, BIT5, 0, BIT5);
+		gpio_output_set(0, BIT5, BIT5, 0);
 	}
 
 	at_response_ok();
@@ -201,3 +202,29 @@ void ICACHE_FLASH_ATTR color_led_init()
 	pwm_init(1000, duty, 3, io_info);
 }
 
+
+/*
+ * ignore key.
+ * 实时数据回调，获取继电器状态、led状态、dht的温湿度；温湿度分别用8字节，float*100后，作为uint32 格式化后存入。
+ * */
+void rt_status_cb_func(uint32 msgid, char* key, int16_t length)
+{
+	char buf[19] = { 0 };
+	//继电器 IO5，LED， 16，DHT IO4
+	PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO5_U, FUNC_GPIO5);
+	gpio_output_set(0, 0, 0, BIT5);
+	buf[0] = 0x1 & GPIO_INPUT_GET(5);
+	gpio_output_set(0, 0, BIT5, 0);
+
+	gpio16_input_conf();
+	buf[1] = 0x1 & gpio16_input_get();
+	gpio16_output_conf();
+
+	struct sensor_reading* dht = readDHT(0);
+	uint32 temperature = dht->temperature * 100;
+	uint32 humidity = dht->humidity * 100;
+	os_sprintf(buf + 2, "%d\0", temperature);
+	os_sprintf(buf + 2 + 8, "%d\0", humidity);
+
+	espush_rtstatus_ret_to_gateway(msgid, buf, sizeof(buf));
+}

@@ -66,6 +66,8 @@ void ICACHE_FLASH_ATTR board_init()
 
 	gpio16_output_conf();
 	gpio16_output_set(0);
+
+	espush_rtstatus_cb(rt_status_cb_func);
 }
 
 
