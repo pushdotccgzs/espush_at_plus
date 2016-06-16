@@ -27,6 +27,11 @@
 #define PWM_BLUE_OUT_IO_FUNC  FUNC_GPIO13
 #define PWM_BLUE_BITS	BIT13
 
+#define AT_DBG(fmt, ...) do {	\
+		static char __debug_str__[128] = { 0 }; 	\
+		os_sprintf(__debug_str__, fmt, ##__VA_ARGS__);	\
+		at_response(__debug_str__);	\
+	} while(0)
 
 
 void ICACHE_FLASH_ATTR smartconfig_succ_timer_cb(void* params)
@@ -91,11 +96,11 @@ void ICACHE_FLASH_ATTR smc_ir_key_init()
 	static struct keys_param keys;
 	static struct single_key_param *keys_param[NUM_BTN];
 	// 2 是按钮，0 是红外
-	//keys_param[0] = key_init_single(2, PERIPHS_IO_MUX_GPIO2_U, FUNC_GPIO2, btn_long_press, btn_short_press); // GOOD
-	keys_param[0] = key_init_single(0, PERIPHS_IO_MUX_GPIO0_U, FUNC_GPIO0, btn_long_press, btn_short_press); // GOOD
-
 //	keys_param[0] = key_init_single(2, PERIPHS_IO_MUX_GPIO2_U, FUNC_GPIO2, btn_long_press, btn_short_press); // GOOD
-//	keys_param[1] = key_init_single(0, PERIPHS_IO_MUX_GPIO0_U, FUNC_GPIO0, ir_long_press, ir_short_press); // GOOD
+//	keys_param[0] = key_init_single(0, PERIPHS_IO_MUX_GPIO0_U, FUNC_GPIO0, btn_long_press, btn_short_press); // GOOD
+
+	keys_param[0] = key_init_single(2, PERIPHS_IO_MUX_GPIO2_U, FUNC_GPIO2, btn_long_press, btn_short_press); // GOOD
+	keys_param[1] = key_init_single(0, PERIPHS_IO_MUX_GPIO0_U, FUNC_GPIO0, ir_long_press, ir_short_press); // GOOD
 
 	//	keys_param[0] = key_init_single(12, PERIPHS_IO_MUX_MTDI_U, FUNC_GPIO12, btn_long_press, btn_short_press); // GOOD
 //	keys_param[0] = key_init_single(13, PERIPHS_IO_MUX_MTCK_U, FUNC_GPIO13, btn_long_press, btn_short_press); // BAD
@@ -224,17 +229,21 @@ void ICACHE_FLASH_ATTR color_led_init()
  * ignore key.
  * 实时数据回调，获取继电器状态、led状态、dht的温湿度；温湿度分别用8字节，float*100后，作为uint32 格式化后存入。
  * */
+
 void rt_status_cb_func(uint32 msgid, char* key, int16_t length)
 {
 	char buf[19] = { 0 };
 	//继电器 IO5，LED， 16，DHT IO4
 	PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO5_U, FUNC_GPIO5);
 	gpio_output_set(0, 0, 0, BIT5);
+	uint8 tmp1 = GPIO_INPUT_GET(5);
+	AT_DBG("5:[%d]\r\n", tmp1);
 	buf[0] = 0x1 & GPIO_INPUT_GET(5);
 	gpio_output_set(0, 0, BIT5, 0);
 
 	gpio16_input_conf();
 	buf[1] = 0x1 & gpio16_input_get();
+	AT_DBG("GPIO16:[%d], RELAY:[%d]\r\n", buf[1], buf[0]);
 	gpio16_output_conf();
 
 	struct sensor_reading* dht = readDHT(0);
