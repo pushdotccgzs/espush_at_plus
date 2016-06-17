@@ -89,7 +89,7 @@ LOCAL void ICACHE_FLASH_ATTR ir_short_press(void)
 }
 
 
-#define NUM_BTN 1
+#define NUM_BTN 2
 
 void ICACHE_FLASH_ATTR smc_ir_key_init()
 {
@@ -102,7 +102,7 @@ void ICACHE_FLASH_ATTR smc_ir_key_init()
 	keys_param[0] = key_init_single(2, PERIPHS_IO_MUX_GPIO2_U, FUNC_GPIO2, btn_long_press, btn_short_press); // GOOD
 	keys_param[1] = key_init_single(0, PERIPHS_IO_MUX_GPIO0_U, FUNC_GPIO0, ir_long_press, ir_short_press); // GOOD
 
-	//	keys_param[0] = key_init_single(12, PERIPHS_IO_MUX_MTDI_U, FUNC_GPIO12, btn_long_press, btn_short_press); // GOOD
+//		keys_param[0] = key_init_single(12, PERIPHS_IO_MUX_MTDI_U, FUNC_GPIO12, btn_long_press, btn_short_press); // GOOD
 //	keys_param[0] = key_init_single(13, PERIPHS_IO_MUX_MTCK_U, FUNC_GPIO13, btn_long_press, btn_short_press); // BAD
 //	keys_param[0] = key_init_single(14, PERIPHS_IO_MUX_MTMS_U, FUNC_GPIO14, btn_long_press, btn_short_press); // GOOD
 //	keys_param[0] = key_init_single(15, PERIPHS_IO_MUX_MTDO_U, FUNC_GPIO15, btn_long_press, btn_short_press); // BAD
@@ -230,27 +230,32 @@ void ICACHE_FLASH_ATTR color_led_init()
  * 实时数据回调，获取继电器状态、led状态、dht的温湿度；温湿度分别用8字节，float*100后，作为uint32 格式化后存入。
  * */
 
-void rt_status_cb_func(uint32 msgid, char* key, int16_t length)
+void ICACHE_FLASH_ATTR rt_status_cb_func(uint32 msgid, char* key, int16_t length)
 {
-	char buf[19] = { 0 };
-	//继电器 IO5，LED， 16，DHT IO4
-	PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO5_U, FUNC_GPIO5);
-	gpio_output_set(0, 0, 0, BIT5);
-	uint8 tmp1 = GPIO_INPUT_GET(5);
-	AT_DBG("5:[%d]\r\n", tmp1);
-	buf[0] = 0x1 & GPIO_INPUT_GET(5);
-	gpio_output_set(0, 0, BIT5, 0);
-
-	gpio16_input_conf();
-	buf[1] = 0x1 & gpio16_input_get();
-	AT_DBG("GPIO16:[%d], RELAY:[%d]\r\n", buf[1], buf[0]);
-	gpio16_output_conf();
-
+	char buf[16+3] = { 0 };
 	struct sensor_reading* dht = readDHT(0);
 	uint32 temperature = dht->temperature * 100;
 	uint32 humidity = dht->humidity * 100;
-	os_sprintf(buf + 2, "%d\0", temperature);
-	os_sprintf(buf + 2 + 8, "%d\0", humidity);
+	os_sprintf(buf, "%d===%d", temperature, humidity);
 
 	espush_rtstatus_ret_to_gateway(msgid, buf, sizeof(buf));
+}
+
+
+//处理实时彩灯调整
+//msgtype：0x11 1字节
+//buf: 2000, 1 表示将第一路彩灯调至2000，分别占用 1字节，4字节
+void ICACHE_FLASH_ATTR color_change(uint32 cur_msgid, uint8 msgtype, uint16 length, uint8* buf)
+{
+//	AT_DBG("COLOR CHANGE [%d],[%d],[%d]\r\n", cur_msgid, msgtype, length);
+	uint32 value = my_htonl(*(uint32*)(buf + 0));
+	if(!value) {
+		value = 1;
+	}
+	AT_DBG("CHANNEL:[%d], VALUE:[%d]\r\n", buf[4], value);
+	pwm_set_duty(my_htonl(*(uint32*)(buf + 0)), buf[4]);
+	pwm_start();
+
+	char retbuf[1] = { 0 };
+	espush_return_to_gateway(0x27, cur_msgid, 0, retbuf, sizeof(retbuf));
 }

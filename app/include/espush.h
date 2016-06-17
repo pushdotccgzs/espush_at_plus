@@ -25,6 +25,8 @@
 #define read_u32(x) my_htonl(x)
 #define read_u16(x) my_htons(x)
 
+#define write_u32(x) my_ntohl(x)
+#define write_u16(x) my_ntohs(x)
 
 /*
  * 客户端能力值，uint8型，不得设置值超过255，否则无效。

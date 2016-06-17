@@ -18,6 +18,10 @@
     {
       "addr": "0x3FE000",
       "name": "blank.bin"
+    },
+    {
+      "addr": "0x7E000",
+      "name": "blank_7E.bin"
     }
   ]
 }
