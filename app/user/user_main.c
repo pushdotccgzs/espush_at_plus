@@ -7,6 +7,8 @@
 #include "espush.h"
 #include "at_board.h"
 #include "dht.h"
+#include "lan.h"
+
 
 at_funcationType at_custom_cmd[] = {
 	{"+PUSH", 5, NULL, at_queryCmdPushStatus, NULL, NULL},
@@ -69,6 +71,8 @@ void ICACHE_FLASH_ATTR board_init()
 
 	espush_rtstatus_cb(rt_status_cb_func);
 	espush_custom_msg_cb(color_change);
+
+	lan_control_init();
 }
 
 

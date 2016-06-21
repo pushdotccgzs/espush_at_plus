@@ -158,7 +158,7 @@ typedef struct regist_info_t {
  * msgcb参数为收到数据的回调。
  */
 void ICACHE_FLASH_ATTR espush_register(uint32 appid, char appkey[32], char devid[32], enum VERTYPE type, msg_cb msgcb);
-void begin_espush_connect();
+void ICACHE_FLASH_ATTR begin_espush_connect();
 /*
  * 单设备注册
  */
@@ -204,6 +204,7 @@ uint32 ICACHE_FLASH_ATTR espush_get_server_host();
 //save espush config
 void ICACHE_FLASH_ATTR save_espush_cfg(uint32 app_id, uint8* appkey, uint8* devid);
 bool ICACHE_FLASH_ATTR read_espush_cfg(espush_cfg_s* info);
+push_config* ICACHE_FLASH_ATTR espush_get_pushcfg();
 
 /*
  * 连接后可获得当前时间
@@ -214,6 +215,7 @@ bool ICACHE_FLASH_ATTR read_espush_cfg(espush_cfg_s* info);
 uint32 ICACHE_FLASH_ATTR get_timestamp();
 
 uint8 ICACHE_FLASH_ATTR set_gpio_edge(uint8 pin, uint8 edge);
+void ICACHE_FLASH_ATTR get_gpio_edge_to_buf(uint8 buf[12]);
 
 /*
  * 调试信息开关
