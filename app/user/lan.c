@@ -14,6 +14,8 @@
 #include "espush.h"
 #include "sha1.h"
 #include "websocketd.h"
+#include "dht.h"
+#include "at_board.h"
 
 #include "driver/md5.h"
 
@@ -35,6 +37,20 @@ const char* ICACHE_FLASH_ATTR md5(const char* buf, size_t length);
 	} while(0)
 
 
+#define WEBSOCKET_JSON_RESULT_SEND(root, connection)	\
+	do {	\
+		char* _sOut__buffer_ = cJSON_PrintUnformatted(root);		\
+		if(!_sOut__buffer_) {										\
+			cJSON_Delete(root);							\
+			at_response("MEMORY FAIL\r\n");				\
+			return;										\
+		}												\
+		sendWsMessage(connection, _sOut__buffer_, os_strlen(_sOut__buffer_), FLAG_FIN | OPCODE_TEXT);	\
+		cJSON_Delete(retmsg);							\
+		os_free(_sOut__buffer_);								\
+	} while(0);
+
+
 typedef void (*MessageHandler)(cJSON*, WSConnection*);
 
 typedef struct {
@@ -48,6 +64,8 @@ void ICACHE_FLASH_ATTR get_gpio_edge_handler(cJSON* msg, WSConnection* connectio
 void ICACHE_FLASH_ATTR set_gpio_edge_handler(cJSON* msg, WSConnection* connection);
 void ICACHE_FLASH_ATTR dht_value_handler(cJSON* msg, WSConnection* connection);
 void ICACHE_FLASH_ATTR color_change_handler(cJSON* msg, WSConnection* connection);
+void ICACHE_FLASH_ATTR chip_info_handler(cJSON* msg, WSConnection* connection);
+void ICACHE_FLASH_ATTR ir_alarmer();
 
 
 enum METHOD_ALL{
@@ -55,7 +73,9 @@ enum METHOD_ALL{
 	METHOD_GET_GPIO_EDGE=1,
 	METHOD_SET_GPIO_EDGE=2,
 	METHOD_DHT_VALUE=3,
-	METHOD_COLOR_CHANGE=4
+	METHOD_COLOR_CHANGE=4,
+	METHOD_IR_ALARM=5,
+	METHOD_GET_INFO=6,
 } ;
 
 
@@ -65,7 +85,40 @@ static Handler_s gl_handler_map[] = {
 		{METHOD_SET_GPIO_EDGE, set_gpio_edge_handler},
 		{METHOD_DHT_VALUE, dht_value_handler},
 		{METHOD_COLOR_CHANGE, color_change_handler},
+		{METHOD_GET_INFO, chip_info_handler},
 };
+
+
+void ICACHE_FLASH_ATTR chip_info_handler(cJSON* msg, WSConnection* connection)
+{
+	char chipBuf[16+1] = { 0 };
+	os_sprintf(chipBuf, "%d", system_get_chip_id());
+	cJSON* retmsg = cJSON_CreateObject();
+	cJSON_AddNumberToObject(retmsg, "method", METHOD_GET_INFO);
+	cJSON_AddStringToObject(retmsg, "direction", "rsp");
+	cJSON_AddStringToObject(retmsg, "result", chipBuf);
+
+	WEBSOCKET_JSON_RESULT_SEND(retmsg, connection);
+}
+
+
+void ICACHE_FLASH_ATTR ir_alarmer()
+{
+	cJSON* retmsg = cJSON_CreateObject();
+	cJSON_AddNumberToObject(retmsg, "method", METHOD_IR_ALARM);
+	cJSON_AddStringToObject(retmsg, "direction", "req");
+
+	char* sOut = cJSON_PrintUnformatted(retmsg);
+	if(!sOut) {
+		cJSON_Delete(retmsg);
+		at_response("MEMORY FAIL\r\n");
+		return;
+	}
+
+	broadcastWsMessage(sOut, os_strlen(sOut), FLAG_FIN | OPCODE_TEXT);
+	cJSON_Delete(retmsg);
+	os_free(sOut);
+}
 
 
 void ICACHE_FLASH_ATTR authorize_handler(cJSON* msg, WSConnection* connection)
@@ -98,13 +151,9 @@ void ICACHE_FLASH_ATTR get_gpio_edge_handler(cJSON* msg, WSConnection* connectio
 	}
 	cJSON_AddStringToObject(retmsg, "direction", "rsp");
 	cJSON_AddStringToObject(retmsg, "result", out_buf);
-	char* sOut = cJSON_PrintUnformatted(retmsg);
-	if(!sOut) {
-		at_response("MEMORY FAIL\r\n");
-		return;
-	}
+	cJSON_AddNumberToObject(retmsg, "method", METHOD_GET_GPIO_EDGE);
 
-	sendWsMessage(connection, sOut, os_strlen(sOut), FLAG_FIN | OPCODE_TEXT);
+	WEBSOCKET_JSON_RESULT_SEND(retmsg, connection);
 }
 
 
@@ -113,24 +162,19 @@ void ICACHE_FLASH_ATTR set_gpio_edge_handler(cJSON* msg, WSConnection* connectio
 	AT_DBG("[%s] [%p] [%p]\r\n", __func__, msg, connection);
 	//get pin && edge
 	cJSON* pin = cJSON_GetObjectItem(msg, "pin");
-	if(!pin) {
-		return;
-	}
-	if(pin->type != cJSON_Number) {
-		return;
-	}
-	uint8_t pin_val = pin->valueint;
-
 	cJSON* edge = cJSON_GetObjectItem(msg, "edge");
-	if(!edge) {
+	if(!pin || !edge) {
 		return;
 	}
-	if(edge->type != cJSON_Number) {
+	if(pin->type != cJSON_Number ||
+			edge->type != cJSON_Number) {
 		return;
 	}
 	if(edge->valueint != 0 && edge->valueint != 1) {
 		return;
 	}
+
+	uint8_t pin_val = pin->valueint;
 	uint8_t edge_val = edge->valueint;
 
 	set_gpio_edge(pin_val, edge_val);
@@ -144,25 +188,56 @@ void ICACHE_FLASH_ATTR set_gpio_edge_handler(cJSON* msg, WSConnection* connectio
 
 	cJSON_AddStringToObject(retmsg, "direction", "rsp");
 	cJSON_AddNumberToObject(retmsg, "result", 0);
-	char* sOut = cJSON_PrintUnformatted(retmsg);
-	if(!sOut) {
-		at_response("MEMORY FAIL\r\n");
-		return;
-	}
+	cJSON_AddNumberToObject(retmsg, "method", METHOD_GET_GPIO_EDGE);
 
-	sendWsMessage(connection, sOut, os_strlen(sOut), FLAG_FIN | OPCODE_TEXT);
+	WEBSOCKET_JSON_RESULT_SEND(retmsg, connection);
 }
 
 
 void ICACHE_FLASH_ATTR dht_value_handler(cJSON* msg, WSConnection* connection)
 {
 	AT_DBG("[%s] [%p] [%p]\r\n", __func__, msg, connection);
+	cJSON* retmsg = cJSON_CreateObject();
+	if(!retmsg) {
+		at_response("MEMORY FAIL\r\n");
+		return;
+	}
+
+	struct sensor_reading* dht = readDHT(0);
+	uint32 humidity = dht->humidity * 100;
+
+	cJSON_AddStringToObject(retmsg, "direction", "rsp");
+	cJSON_AddNumberToObject(retmsg, "method", METHOD_DHT_VALUE);
+	cJSON_AddNumberToObject(retmsg, "temperature", dht->temperature * 100);
+	cJSON_AddNumberToObject(retmsg, "humidity", dht->humidity * 100);
+
+	WEBSOCKET_JSON_RESULT_SEND(retmsg, connection);
 }
 
 
 void ICACHE_FLASH_ATTR color_change_handler(cJSON* msg, WSConnection* connection)
 {
 	AT_DBG("[%s] [%p] [%p]\r\n", __func__, msg, connection);
+	//channel, value
+	cJSON* channel = cJSON_GetObjectItem(msg, "channel");
+	cJSON* value = cJSON_GetObjectItem(msg, "value");
+	if(!channel || !value) {
+		return;
+	}
+	if(channel->type != cJSON_Number ||
+			value->type != cJSON_Number) {
+		return;
+	}
+	uint8_t channel_val = channel->valueint;
+	uint16_t value_val = value->valueint;
+
+	pwm_change(channel_val, value_val);
+
+	cJSON* retmsg = cJSON_CreateObject();
+	cJSON_AddNumberToObject(retmsg, "method", METHOD_COLOR_CHANGE);
+	cJSON_AddNumberToObject(retmsg, "result", 0);
+	cJSON_AddStringToObject(retmsg, "direction", "rsp");
+	WEBSOCKET_JSON_RESULT_SEND(retmsg, connection);
 }
 
 
@@ -173,7 +248,7 @@ void ICACHE_FLASH_ATTR onMessage(WSConnection* connection, const WSFrame* frame)
 {
 	int i, length;
 
-	AT_DBG("Message, length: [%d]\r\n", frame->payloadLength);
+//	AT_DBG("Message, length: [%d]\r\n", frame->payloadLength);
 	cJSON* root = cJSON_Parse(frame->payloadData);
 	// parse direction, ignore rsp
 	cJSON* direction_field = cJSON_GetObjectItem(root, "direction");
@@ -208,12 +283,12 @@ void ICACHE_FLASH_ATTR onMessage(WSConnection* connection, const WSFrame* frame)
 //	AT_DBG("Message6, length: [%d]\r\n", frame->payloadLength);
 	length = sizeof(gl_handler_map) / sizeof(Handler_s);
 	for(i=0; i != length; ++i) {
-		AT_DBG("LOOP: [%d], MAP_ENUM: [%d], VALUE_INT: [%d], LENGTH: [%d]\r\n", i, gl_handler_map[i].method, method_field->valueint, length);
+//		AT_DBG("LOOP: [%d], MAP_ENUM: [%d], VALUE_INT: [%d], LENGTH: [%d]\r\n", i, gl_handler_map[i].method, method_field->valueint, length);
 		if(gl_handler_map[i].method == method_field->valueint) {
 			MessageHandler handler = gl_handler_map[i].handler;
-			AT_DBG("Message7, length: [%d]\r\n", frame->payloadLength);
+//			AT_DBG("Message7, length: [%d]\r\n", frame->payloadLength);
 			handler(root, connection);
-			AT_DBG("Message8, length: [%d]\r\n", frame->payloadLength);
+//			AT_DBG("Message8, length: [%d]\r\n", frame->payloadLength);
 			break;
 		}
 	}
@@ -228,30 +303,29 @@ void ICACHE_FLASH_ATTR onConnection(WSConnection* connection)
 }
 
 
+const char* ICACHE_FLASH_ATTR get_signstr()
+{
+	espush_cfg_s info;
+	// appid && md5(appid+appkey) && \00
+	static uint8 checker_buffer[16+32+1] = { 0 };
+
+	if(!read_espush_cfg(&info)) {
+		AT_DBG("ESPUSH CONFIG ERROR.\r\n");
+		return NULL;
+	}
+	os_sprintf(checker_buffer, "%d", info.app_id);
+	os_memcpy(checker_buffer + os_strlen(checker_buffer), info.appkey, sizeof(info.appkey));
+	os_memcpy(checker_buffer, md5(checker_buffer, os_strlen(checker_buffer)), 32);
+	checker_buffer[32] = 0;
+
+	return checker_buffer;
+}
+
+
 void ICACHE_FLASH_ATTR findme_recv_cb(void *arg, char *pdata, unsigned short length)
 {
 	AT_DBG("RECV FRAME: [%s], [%d]\r\n", pdata, length);
 	//read cfg
-	espush_cfg_s info;
-	if(!read_espush_cfg(&info)) {
-		AT_DBG("ESPUSH CONFIG ERROR.\r\n");
-		return;
-	}
-	AT_DBG("read trace, [%d], [%s]\r\n", info.app_id, info.appkey);
-
-	uint8 appid_buf[16 + 1] = { 0 };
-	os_sprintf(appid_buf, "%d", info.app_id);
-	AT_DBG("appid_buf: [%s]\r\n", appid_buf);
-
-	// appid && md5(appid+appkey) && \00
-	uint8 checker_buffer[16+32+1] = { 0 };
-	os_sprintf(checker_buffer, "%d", info.app_id);
-	os_memcpy(checker_buffer + os_strlen(appid_buf), info.appkey, sizeof(info.appkey));
-	AT_DBG("BUF: [%s]\r\n", checker_buffer);
-
-	os_memcpy(checker_buffer + os_strlen(appid_buf), md5(checker_buffer, os_strlen(checker_buffer)), 32);
-	AT_DBG("BUF: [%s]\r\n", checker_buffer);
-	at_response("TRACE!\r\n");
 
 	remot_info *premot = NULL;
 	if(espconn_get_connection_info(&findme_conn, &premot, 0) != ESPCONN_OK) {
@@ -261,20 +335,15 @@ void ICACHE_FLASH_ATTR findme_recv_cb(void *arg, char *pdata, unsigned short len
 	os_memcpy(findme_conn.proto.udp->remote_ip, premot->remote_ip, 4);
 	findme_conn.proto.udp->remote_port = premot->remote_port;
 
-	AT_DBG("IP: [%d.%d.%d.%d], PORT: [%d]\r\n", premot->remote_ip[0],
-			premot->remote_ip[1],
-			premot->remote_ip[2],
-			premot->remote_ip[3],
-			premot->remote_port);
-	if(!os_strcmp(pdata, checker_buffer)) {
-		AT_DBG("SENT BACK1\r\n");
+	if(!os_strcmp(pdata, get_signstr())) {
 		espconn_sent(&findme_conn, (uint8*)FRAME_FINDME_RESPONSE, os_strlen(FRAME_FINDME_RESPONSE));
 	}
 }
 
+
 void ICACHE_FLASH_ATTR findme_sent_cb(void* arg)
 {
-	AT_DBG("[%s], [%p] [%p]\n", __func__, arg, &findme_conn);
+	//AT_DBG("[%s], [%p] [%p]\n", __func__, arg, &findme_conn);
 }
 
 
@@ -299,7 +368,7 @@ const char* ICACHE_FLASH_ATTR md5(const char* buf, size_t length)
 	MD5_CTX ctx;
 
 	MD5_Init(&ctx);
-	MD5_Update(&ctx, "HELLO", 5);
+	MD5_Update(&ctx, buf, length);
 	MD5_Final(out, &ctx);
 
 	for(i=0; i != 16; ++i) {
@@ -317,4 +386,3 @@ void ICACHE_FLASH_ATTR lan_control_init()
 	websocketdInit(LAN_CONTROL_PORT, onConnection);
 	finding_me_init();
 }
-

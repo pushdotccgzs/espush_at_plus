@@ -33,12 +33,12 @@
 
 
 
-void* ICACHE_FLASH_ATTR esp_malloc(size_t sz)
+static void* ICACHE_FLASH_ATTR esp_malloc(size_t sz)
 {
 	return (char*)os_malloc(sz);
 }
 
-void ICACHE_FLASH_ATTR esp_free(void *ptr)
+static void ICACHE_FLASH_ATTR esp_free(void *ptr)
 {
 	os_free(ptr);
 }

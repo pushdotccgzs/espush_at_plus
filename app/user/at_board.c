@@ -40,6 +40,20 @@ void ICACHE_FLASH_ATTR smartconfig_succ_timer_cb(void* params)
 }
 
 
+void ICACHE_FLASH_ATTR pwm_change(uint8_t channel, uint16_t value)
+{
+	if(!value) {
+		return;
+	}
+	if(channel > 2 || channel < 0) {
+		return;
+	}
+
+	pwm_set_duty(value, channel);
+	pwm_start();
+}
+
+
 void ICACHE_FLASH_ATTR smartconfig_succ_func()
 {
 	//配置成功后，调低彩灯亮度
@@ -117,9 +131,8 @@ void ICACHE_FLASH_ATTR at_queryReadDHT(uint8_t id)
 	struct sensor_reading* dht = readDHT(0);
 	uint32 temperature = dht->temperature * 100;
 	uint32 humidity = dht->humidity * 100;
-	char out[32] = { 0 };
-	os_sprintf(out, "TEMP: [%d], HUMI: [%d]\0", temperature, humidity);
-	at_response(out);
+
+	AT_DBG("TEMP: [%d], HUMI: [%d]\0", temperature, humidity);
 
 	if(dht->success) {
 		at_response_ok();
