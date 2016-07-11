@@ -33,7 +33,11 @@ void ICACHE_FLASH_ATTR at_recv_push_msg_cb(uint8* pdata, uint32 len)
 		at_response(buf);
 	}
 	//uart0_tx_buffer(pdata, len);
+	uint8_t tmp = pdata[len];
+	pdata[len] = 0;
     at_response(pdata);
+    pdata[len] = tmp;
+
 	if(suffix_flag) {
 		at_response("\r\n");
 	}

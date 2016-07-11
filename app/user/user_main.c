@@ -55,15 +55,15 @@ void ICACHE_FLASH_ATTR user_rf_pre_init(void)
  * 3, 彩灯默认亮度调节
  * 4, LED默认关闭
  */
-void ICACHE_FLASH_ATTR board_init()
+void ICACHE_FLASH_ATTR board_init(void)
 {
 	smc_ir_key_init();
-	DHTInit(SENSOR_DHT11, 5000);
-
+	DHTInit(SENSOR_DHT11, 20000);
+	struct sensor_reading *dhtValue = readDHT(1);
+	if(!dhtValue->success) {
+		AT_DBG("DHT INIT ERROR.\r\n");
+	}
 	color_led_init();
-	pwm_set_duty(10, 0);   // 0~2
-	pwm_set_duty(10, 1);   // 0~2
-	pwm_set_duty(10, 2);   // 0~2
 	pwm_start();
 
 	gpio16_output_conf();
@@ -73,6 +73,7 @@ void ICACHE_FLASH_ATTR board_init()
 	espush_custom_msg_cb(color_change);
 
 	lan_control_init();
+	regist_push_from_read_flash();
 }
 
 
@@ -82,12 +83,10 @@ void ICACHE_FLASH_ATTR board_init()
 void ICACHE_FLASH_ATTR user_init(void)
 {
     char* ver = "espush.cn ";
-    at_customLinkMax = 5;
     at_init();
     at_set_custom_info(ver);
     at_port_print("\r\nready\r\n");
     at_cmd_array_regist(&at_custom_cmd[0], sizeof(at_custom_cmd)/sizeof(at_funcationType));
-    board_init();
 
-    system_init_done_cb((init_done_cb_t)regist_push_from_read_flash);
+    system_init_done_cb(board_init);
 }

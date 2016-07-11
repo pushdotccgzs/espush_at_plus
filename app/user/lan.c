@@ -25,6 +25,7 @@
 #define FRAME_DIRECTION_RSP "rsp"
 #define FRAME_FINDME_HEADER "ESPUSH"
 #define FRAME_FINDME_RESPONSE "IMHERE"
+#define MAX_CHIPID_LENGTH 16
 
 static struct espconn findme_conn;
 static esp_udp findme_udp;
@@ -65,7 +66,6 @@ void ICACHE_FLASH_ATTR set_gpio_edge_handler(cJSON* msg, WSConnection* connectio
 void ICACHE_FLASH_ATTR dht_value_handler(cJSON* msg, WSConnection* connection);
 void ICACHE_FLASH_ATTR color_change_handler(cJSON* msg, WSConnection* connection);
 void ICACHE_FLASH_ATTR chip_info_handler(cJSON* msg, WSConnection* connection);
-void ICACHE_FLASH_ATTR ir_alarmer();
 
 
 enum METHOD_ALL{
@@ -91,7 +91,7 @@ static Handler_s gl_handler_map[] = {
 
 void ICACHE_FLASH_ATTR chip_info_handler(cJSON* msg, WSConnection* connection)
 {
-	char chipBuf[16+1] = { 0 };
+	char chipBuf[MAX_CHIPID_LENGTH+1] = { 0 };
 	os_sprintf(chipBuf, "%d", system_get_chip_id());
 	cJSON* retmsg = cJSON_CreateObject();
 	cJSON_AddNumberToObject(retmsg, "method", METHOD_GET_INFO);
@@ -102,7 +102,7 @@ void ICACHE_FLASH_ATTR chip_info_handler(cJSON* msg, WSConnection* connection)
 }
 
 
-void ICACHE_FLASH_ATTR ir_alarmer()
+void ICACHE_FLASH_ATTR ir_lan_alarmer()
 {
 	cJSON* retmsg = cJSON_CreateObject();
 	cJSON_AddNumberToObject(retmsg, "method", METHOD_IR_ALARM);
@@ -305,9 +305,10 @@ void ICACHE_FLASH_ATTR onConnection(WSConnection* connection)
 
 const char* ICACHE_FLASH_ATTR get_signstr()
 {
+	return "ESPUSH_LOCAL_CONTROL";
 	espush_cfg_s info;
 	// appid && md5(appid+appkey) && \00
-	static uint8 checker_buffer[16+32+1] = { 0 };
+	static uint8 checker_buffer[MAX_CHIPID_LENGTH+32+1] = { 0 };
 
 	if(!read_espush_cfg(&info)) {
 		AT_DBG("ESPUSH CONFIG ERROR.\r\n");
@@ -324,7 +325,7 @@ const char* ICACHE_FLASH_ATTR get_signstr()
 
 void ICACHE_FLASH_ATTR findme_recv_cb(void *arg, char *pdata, unsigned short length)
 {
-	AT_DBG("RECV FRAME: [%s], [%d]\r\n", pdata, length);
+	//AT_DBG("RECV FRAME: [%s], [%d]\r\n", pdata, length);
 	//read cfg
 
 	remot_info *premot = NULL;
@@ -335,8 +336,12 @@ void ICACHE_FLASH_ATTR findme_recv_cb(void *arg, char *pdata, unsigned short len
 	os_memcpy(findme_conn.proto.udp->remote_ip, premot->remote_ip, 4);
 	findme_conn.proto.udp->remote_port = premot->remote_port;
 
+	uint8 outBuf[30] = { 0 };
+	os_memcpy(outBuf, FRAME_FINDME_RESPONSE, os_strlen(FRAME_FINDME_RESPONSE));
+	os_sprintf(outBuf + os_strlen(FRAME_FINDME_RESPONSE), "%d", system_get_chip_id());
+
 	if(!os_strcmp(pdata, get_signstr())) {
-		espconn_sent(&findme_conn, (uint8*)FRAME_FINDME_RESPONSE, os_strlen(FRAME_FINDME_RESPONSE));
+		espconn_sent(&findme_conn, (uint8*)outBuf, os_strlen(outBuf));
 	}
 }
 
@@ -356,7 +361,7 @@ void ICACHE_FLASH_ATTR finding_me_init()
 	espconn_regist_sentcb(&findme_conn, findme_sent_cb);
 
 	int iRet = espconn_create(&findme_conn);
-	AT_DBG("FINDING ME INIT: [%d]\r\n", iRet);
+//	AT_DBG("FINDING ME INIT: [%d]\r\n", iRet);
 }
 
 
@@ -382,7 +387,7 @@ const char* ICACHE_FLASH_ATTR md5(const char* buf, size_t length)
 
 void ICACHE_FLASH_ATTR lan_control_init()
 {
-	AT_DBG("LAN_CONTROL_INIT\r\n");
+//	AT_DBG("LAN_CONTROL_INIT\r\n");
 	websocketdInit(LAN_CONTROL_PORT, onConnection);
 	finding_me_init();
 }

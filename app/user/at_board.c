@@ -27,12 +27,6 @@
 #define PWM_BLUE_OUT_IO_FUNC  FUNC_GPIO13
 #define PWM_BLUE_BITS	BIT13
 
-#define AT_DBG(fmt, ...) do {	\
-		static char __debug_str__[128] = { 0 }; 	\
-		os_sprintf(__debug_str__, fmt, ##__VA_ARGS__);	\
-		at_response(__debug_str__);	\
-	} while(0)
-
 
 void ICACHE_FLASH_ATTR smartconfig_succ_timer_cb(void* params)
 {
@@ -100,6 +94,7 @@ LOCAL void ICACHE_FLASH_ATTR ir_short_press(void)
 	at_response("IR ALARM\r\n");
 	//·¢Êı¾İ£¡
 	uart_stream("IR1", 3);
+	ir_lan_alarmer();
 }
 
 
@@ -128,17 +123,21 @@ void ICACHE_FLASH_ATTR smc_ir_key_init()
 
 void ICACHE_FLASH_ATTR at_queryReadDHT(uint8_t id)
 {
-	struct sensor_reading* dht = readDHT(0);
+	struct sensor_reading* dht = readDHT(1);
 	uint32 temperature = dht->temperature * 100;
 	uint32 humidity = dht->humidity * 100;
 
-	AT_DBG("TEMP: [%d], HUMI: [%d]\0", temperature, humidity);
-
 	if(dht->success) {
+		AT_DBG("TEMP: [%d], HUMI: [%d]\0", temperature, humidity);
 		at_response_ok();
 	} else {
-		//at_response_error();
-		at_response_ok();
+		if(temperature && humidity) {
+			AT_DBG("TEMP: [%d], HUMI: [%d]\0", temperature, humidity);
+			at_response_ok();
+		} else {
+			AT_DBG("READ ERROR\r\n");
+			at_response_error();
+		}
 	}
 }
 
@@ -233,7 +232,7 @@ void ICACHE_FLASH_ATTR color_led_init()
 			{PWM_BLUE_OUT_IO_MUX,PWM_BLUE_OUT_IO_FUNC,PWM_BLUE_OUT_IO_NUM},
 			};
 
-	u32 duty[3] = {600,604,634};
+	u32 duty[3] = {1 ,1 , 1};
 	pwm_init(1000, duty, 3, io_info);
 }
 
@@ -246,7 +245,7 @@ void ICACHE_FLASH_ATTR color_led_init()
 void ICACHE_FLASH_ATTR rt_status_cb_func(uint32 msgid, char* key, int16_t length)
 {
 	char buf[16+3] = { 0 };
-	struct sensor_reading* dht = readDHT(0);
+	struct sensor_reading* dht = readDHT(1);
 	uint32 temperature = dht->temperature * 100;
 	uint32 humidity = dht->humidity * 100;
 	os_sprintf(buf, "%d===%d", temperature, humidity);

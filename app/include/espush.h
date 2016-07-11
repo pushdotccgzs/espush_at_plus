@@ -234,5 +234,12 @@ void ICACHE_FLASH_ATTR get_gpio_edge_to_buf(uint8 buf[12]);
 #define ESP_DBG
 #endif
 
+#define AT_DBG(fmt, ...) do {	\
+		static char __debug_str__[128] = { 0 }; 	\
+		os_sprintf(__debug_str__, fmt, ##__VA_ARGS__);	\
+		at_response(__debug_str__);	\
+	} while(0)
+
+
 
 #endif /* APP_INCLUDE_PUSH_H_ */

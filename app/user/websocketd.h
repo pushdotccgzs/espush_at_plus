@@ -57,7 +57,8 @@
 #define STATUS_CLOSED 1
 #define STATUS_UNINITIALISED 2
 
-#define CLOSE_MESSAGE {FLAG_FIN | OPCODE_CLOSE, IS_MASKED /* + payload = 0*/, 0 /* + masking key*/}
+//#define CLOSE_MESSAGE {FLAG_FIN | OPCODE_CLOSE, IS_MASKED /* + payload = 0*/, 0 /* + masking key*/}
+#define CLOSE_MESSAGE {FLAG_FIN | OPCODE_CLOSE, 0 /* + payload = 0*/, 0 /* + masking key*/}
 #define CLOSE_MESSAGE_LENGTH 3
 
 typedef struct WSFrame WSFrame;
